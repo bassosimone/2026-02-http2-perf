@@ -78,8 +78,63 @@ topology (client -- router -- server, connected via veth pairs).
    ndt7 over WebSocket+TLS achieves ~20 Gbit/s. Any HTTP/2-based
    protocol would probably achieve 4-12 Gbit/s depending on implementation.
 
-5. **Further tuning and optimization may still be possible.** I did
-   eventually time out and chose to publish this initial version.
+5. **Further tuning and optimization may still be possible.** This testing
+   is not exhaustive. I eventually timed out and chose to publish this initial
+   version. Additionally, my Rust skills are fairly basic — the Rust benchmarks
+   may have significant room for optimization that I missed.
+
+## Open Questions / Future Work
+
+Building on observation 5 above, these are genuinely open questions that could
+be investigated with additional benchmarks using the same LXC testbed:
+
+- **Production HTTP/2 reverse proxies**: Would placing nginx, Cloudflare's
+  [pingora](https://github.com/cloudflare/pingora), or Google's
+  [QUICHE](https://github.com/google/quiche) in front of a simple backend
+  outperform Go's `x/net/http2`? These are battle-tested, heavily optimized
+  HTTP/2 implementations that might not have the same single-writer bottleneck.
+  In particular, would serving large static files through these proxies perform
+  even better, since that is their primary optimization target (sendfile,
+  zero-copy, mmap)?
+
+- **HTTP/3 (QUIC)**: Does QUIC change the picture? It eliminates TCP head-of-line
+  blocking and has its own flow control. Worth testing with QUICHE or nginx's
+  experimental HTTP/3 support.
+
+- **Browser as client**: All current benchmarks use Go or Rust clients. Does
+  a browser's HTTP/2 stack (Chromium's, Firefox's) perform differently as the
+  receiving end? This matters because the real-world ndt8 client will be
+  JavaScript running in a browser. Note that both Chromium and Firefox separate
+  the network stack (Chromium's "network service," Firefox's "necko") from the
+  renderer process where JavaScript runs. Data must cross an IPC boundary (Mojo
+  in Chromium) to reach JavaScript. It would be important to understand whether
+  this IPC hop is itself a throughput bottleneck, and how the browser's network
+  stack alone performs when not limited by the renderer. This last point is
+  probably best investigated in a separate, browser-focused effort.
+
+## Single-Connection Constraint
+
+Both HTTP/2 ([RFC 9113 section 9.1](https://www.rfc-editor.org/rfc/rfc9113#section-9.1))
+and HTTP/3 ([RFC 9114](https://www.rfc-editor.org/rfc/rfc9114)) recommend
+against opening more than one connection to the same host. RFC 9113 uses
+"SHOULD NOT" (a strong recommendation in RFC 2119 language).
+
+This has architectural implications for network measurement:
+
+- **Parallel measurements**: Running multiple concurrent TCP-based tests to the
+  same server (e.g., as MSAK *could* do) conflicts with this recommendation.
+  With HTTP/2, multiple requests become streams multiplexed over the same
+  connection, sharing flow control budget.
+
+- **Responsiveness probes**: Sending lightweight probe requests to measure RTT
+  *during* a bulk data transfer is harder when both share the same connection —
+  the probe competes with data frames for flow control window space.
+
+- **Flow control defaults**: HTTP/2's default initial flow control window is
+  only 65,535 bytes (64 KB). Browsers increase this via WINDOW_UPDATE, but how
+  aggressively they scale varies across implementations. These defaults, combined
+  with the single-connection constraint, may be a fundamental throughput
+  bottleneck in both HTTP/2 and HTTP/3 for high-bandwidth measurement scenarios.
 
 ## Cleanup
 
