@@ -54,13 +54,12 @@ func serveNDT7Main(ctx context.Context, args []string) error {
 	fset.StringVar(&nameFlag, 'n', "name", "Use `NAME` to name LXC resources.")
 	runtimex.PanicOnError0(fset.Parse(args))
 
-	mustRun("rm -f cert.pem key.pem")
 	mustRun("go build -v ./cmd/gencert")
 	mustRun("go build -v ./cmd/ndt7")
 
 	mustRun("./gencert --ip-addr %s", serverAddr)
-	mustRun("lxc file push cert.pem %s-server/root/", nameFlag)
-	mustRun("lxc file push key.pem %s-server/root/", nameFlag)
+	mustRun("lxc file push testdata/cert.pem %s-server/root/", nameFlag)
+	mustRun("lxc file push testdata/key.pem %s-server/root/", nameFlag)
 	mustRun("lxc file push ndt7 %s-server/root/", nameFlag)
 
 	cmdArgv := []string{

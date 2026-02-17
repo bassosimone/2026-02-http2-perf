@@ -29,7 +29,7 @@ func measureRustHTTP2Main(ctx context.Context, args []string) error {
 	mustRun("cp cmd/rusthttp2/target/x86_64-unknown-linux-musl/release/rusthttp2 .")
 	mustRun("lxc file push rusthttp2 %s-client/root/", nameFlag)
 	if !noTLSFlag {
-		mustRun("lxc file push cert.pem %s-client/root/", nameFlag)
+		mustRun("lxc file push testdata/cert.pem %s-client/root/", nameFlag)
 	}
 
 	cmdArgv := []string{
@@ -69,11 +69,10 @@ func serveRustHTTP2Main(ctx context.Context, args []string) error {
 	mustRun("cp cmd/rusthttp2/target/x86_64-unknown-linux-musl/release/rusthttp2 .")
 
 	if !noTLSFlag {
-		mustRun("rm -f cert.pem key.pem")
 		mustRun("go build -v ./cmd/gencert")
 		mustRun("./gencert --ip-addr %s", serverAddr)
-		mustRun("lxc file push cert.pem %s-server/root/", nameFlag)
-		mustRun("lxc file push key.pem %s-server/root/", nameFlag)
+		mustRun("lxc file push testdata/cert.pem %s-server/root/", nameFlag)
+		mustRun("lxc file push testdata/key.pem %s-server/root/", nameFlag)
 	}
 	mustRun("lxc file push rusthttp2 %s-server/root/", nameFlag)
 

@@ -1,5 +1,6 @@
 /cert.pem
 /gencert
+/testdata/
 /gohttp1
 /gohttp2
 /gohttp2c
